@@ -1,13 +1,13 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { motion, useInView, useAnimation } from "framer-motion";
+import { motion } from "framer-motion";
 
 const MotionLink = motion(Link);
 
 const phoneImgs = [
-  "https://source.unsplash.com/800x600/?featurephone,woman,africa",
-  "https://source.unsplash.com/800x600/?sms,phone,africa,woman",
-  "https://source.unsplash.com/800x600/?village,africa,women",
+  "https://sdmntprwestus.oaiusercontent.com/files/00000000-554c-6230-be4e-ae25adf6b5e8/raw?se=2025-10-06T19%3A37%3A13Z&sp=r&sv=2024-08-04&sr=b&scid=7a30b84d-a81e-53a6-bf79-b7d1a733709a&skoid=1e6af1bf-6b08-4a04-8919-15773e7e7024&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-10-06T13%3A53%3A36Z&ske=2025-10-07T13%3A53%3A36Z&sks=b&skv=2024-08-04&sig=5d2dk9qlm8pm9zjnz87XU%2BjX1AM4v/0nRQpT7ucBV3k%3D",
+  "https://sdmntprwestus.oaiusercontent.com/files/00000000-f5c4-6230-a1c1-d6434445af12/raw?se=2025-10-06T19%3A49%3A23Z&sp=r&sv=2024-08-04&sr=b&scid=5f1cec85-d033-5c41-b723-54da5bc5f608&skoid=1e6af1bf-6b08-4a04-8919-15773e7e7024&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-10-06T08%3A26%3A36Z&ske=2025-10-07T08%3A26%3A36Z&sks=b&skv=2024-08-04&sig=jffT20mbTgOf9HOZRSbQlozyqvfGApuIB2gogK0FcDw%3D",
+  "https://sdmntprwestus.oaiusercontent.com/files/00000000-09ec-6230-824f-898181e924de/raw?se=2025-10-06T19%3A47%3A28Z&sp=r&sv=2024-08-04&sr=b&scid=5dbf1cfc-13a3-55ed-a6a7-b555cc8e4c22&skoid=1e6af1bf-6b08-4a04-8919-15773e7e7024&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-10-06T06%3A37%3A30Z&ske=2025-10-07T06%3A37%3A30Z&sks=b&skv=2024-08-04&sig=V87QXGJYkOkmNjTFDGCvrZ7FqoGakr1r53qapo18/OM%3D",
 ];
 
 // Animation variants
@@ -17,11 +17,7 @@ const fadeInUp = {
 };
 
 const staggerContainer = {
-  animate: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
+  animate: { transition: { staggerChildren: 0.1 } },
 };
 
 const scaleIn = {
@@ -29,20 +25,13 @@ const scaleIn = {
   animate: { opacity: 1, scale: 1 },
 };
 
+// A simple section wrapper that triggers on view using whileInView
 function AnimatedSection({ children, className = "", ...rest }) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-50px" });
-  const controls = useAnimation();
-
-  useEffect(() => {
-    if (isInView) controls.start("animate");
-  }, [isInView, controls]);
-
   return (
     <motion.section
-      ref={ref}
       initial="initial"
-      animate={controls}
+      whileInView="animate"
+      viewport={{ once: true, margin: "-50px" }}
       variants={fadeInUp}
       transition={{ duration: 0.6 }}
       className={className}
@@ -108,11 +97,9 @@ function StepCard({ step, title, description, index }) {
 }
 
 export default function Home() {
-  const heroControls = useAnimation();
-
   useEffect(() => {
-    heroControls.start({ opacity: 1, y: 0 });
-  }, [heroControls]);
+    // page-level effects (if you need any later)
+  }, []);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-rose-50 via-amber-50 to-white overflow-hidden">
@@ -267,10 +254,7 @@ export default function Home() {
       </AnimatedSection>
 
       {/* Features */}
-      <AnimatedSection
-        id="features"
-        className="max-w-6xl mx-auto px-5 py-12 bg-rose-50/30 rounded-3xl mb-8"
-      >
+      <AnimatedSection id="features" className="max-w-6xl mx-auto px-5 py-12 bg-rose-50/30 rounded-3xl mb-8">
         <motion.h3 className="text-xl md:text-2xl font-bold text-slate-900 text-center" variants={fadeInUp}>
           Built for real-world barriers
         </motion.h3>
@@ -322,10 +306,10 @@ export default function Home() {
         <div className="grid md:grid-cols-2 gap-8 items-center">
           <motion.div
             className="rounded-3xl bg-amber-50 p-6 shadow-inner border border-amber-100"
-            whileInView="animate"
             initial="initial"
-            variants={scaleIn}
+            whileInView="animate"
             viewport={{ once: true }}
+            variants={scaleIn}
             transition={{ duration: 0.6 }}
           >
             <h3 className="text-xl md:text-2xl font-bold text-amber-900">Why it changes lives</h3>
@@ -346,14 +330,14 @@ export default function Home() {
           </motion.div>
           <motion.div
             className="rounded-3xl overflow-hidden shadow-2xl ring-1 ring-amber-100"
-            whileInView={{ opacity: 1, scale: 1 }}
             initial={{ opacity: 0, scale: 0.94 }}
+            whileInView={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.7 }}
             viewport={{ once: true }}
             whileHover={{ scale: 1.02 }}
           >
             <img
-              src="https://source.unsplash.com/1200x800/?africa,women,community"
+              src="https://sdmntprwestus.oaiusercontent.com/files/00000000-cfd4-6230-8967-be8983a8f0b9/raw?se=2025-10-06T19%3A39%3A18Z&sp=r&sv=2024-08-04&sr=b&scid=24604c21-0a9f-55d8-8351-2732854b91aa&skoid=1e6af1bf-6b08-4a04-8919-15773e7e7024&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-10-06T13%3A53%3A53Z&ske=2025-10-07T13%3A53%3A53Z&sks=b&skv=2024-08-04&sig=UL/nB5jCUlCzmhLivs5qdJm/2SaPUbdmpP2NQ7d/ePI%3D"
               alt="Women learning together"
               className="w-full h-64 md:h-80 object-cover"
               loading="lazy"
@@ -366,10 +350,10 @@ export default function Home() {
       <AnimatedSection className="max-w-6xl mx-auto px-5 pb-16">
         <motion.div
           className="rounded-3xl bg-gradient-to-r from-rose-500 to-amber-500 text-white p-8 md:p-10 shadow-2xl relative overflow-hidden"
-          whileInView="animate"
           initial="initial"
-          variants={scaleIn}
+          whileInView="animate"
           viewport={{ once: true }}
+          variants={scaleIn}
         >
           <div className="absolute inset-0 bg-black/10" />
           <div className="relative z-10">
