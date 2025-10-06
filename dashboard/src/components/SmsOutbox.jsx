@@ -1,59 +1,45 @@
-// dashboard/src/components/SmsOutbox.jsx
 import React, { useEffect, useState } from "react";
-import { getJson } from "../lib/api";
 
-export default function SmsOutbox() {
-  const [rows, setRows] = useState(null);
-  const [err, setErr] = useState("");
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-  async function load() {
-    setErr("");
-    try {
-      const data = await getJson("/api/sms/outbox?limit=50");
-      setRows(data.messages || []);
-    } catch (e) {
-      setErr("Failed to load SMS outbox.");
-      setRows([]);
-    }
-  }
-  useEffect(() => { load(); }, []);
+export default function SmsOutbox({ limit = 50 }) {
+  const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    let t;
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/sms/outbox?limit=${limit}`);
+        const json = await res.json();
+        setMessages(json.messages || []);
+      } catch (e) {
+        console.error("Outbox fetch failed:", e);
+      }
+    };
+    load();
+    t = setInterval(load, 2000);
+    return () => clearInterval(t);
+  }, [limit]);
 
   return (
-    <div className="bg-white rounded-2xl shadow p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold">SMS Outbox (latest)</h3>
-        <button onClick={load} className="px-3 py-1 text-sm rounded bg-slate-100 hover:bg-slate-200">
-          Refresh
-        </button>
+    <div className="card">
+      <div className="card-title">SMS Outbox (latest {limit})</div>
+      <div className="divide-y">
+        {messages.length === 0 && (
+          <div className="p-3 text-sm text-slate-500">
+            No messages yet. Perform an action in the USSD emulator (e.g., Register) to queue SMS.
+          </div>
+        )}
+        {messages.map((m) => (
+          <div key={m.id} className="p-3">
+            <div className="text-xs text-slate-400">
+              {new Date(m.created_at).toLocaleString()} • {m.msisdn}
+            </div>
+            <div className="font-medium text-slate-800">{m.body}</div>
+            <div className="text-xs text-slate-500 mt-1">Status: {m.status}</div>
+          </div>
+        ))}
       </div>
-      {err && <div className="text-rose-700 text-sm mt-2">{err}</div>}
-
-      {!rows ? (
-        <p className="text-sm text-slate-600 mt-3">Loading…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-slate-600 mt-3">No messages yet.</p>
-      ) : (
-        <table className="w-full text-sm mt-3">
-          <thead>
-            <tr className="text-left">
-              <th className="py-1">Time</th>
-              <th>To</th>
-              <th>Body</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((m) => (
-              <tr key={m.id} className="border-t">
-                <td className="py-1">{new Date(m.created_at).toLocaleString()}</td>
-                <td>{m.msisdn}</td>
-                <td className="max-w-[420px] truncate" title={m.body}>{m.body}</td>
-                <td>{m.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
     </div>
   );
 }

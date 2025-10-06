@@ -1,5 +1,7 @@
+// dashboard/src/App.jsx
 import React from "react";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { Routes, Route, NavLink } from "react-router-dom";
+
 import Lessons from "./pages/Lessons";
 import Users from "./pages/Users";
 import Quizzes from "./pages/Quizzes";
@@ -7,31 +9,89 @@ import KB from "./pages/KB";
 import Certifications from "./pages/Certifications";
 import Helpline from "./pages/Helpline";
 import Analytics from "./pages/Analytics";
+import UssdEmulator from "./components/UssdEmulator"; // <— new
+
+const LinkItem = ({ to, children }) => (
+  <NavLink
+    to={to}
+    className={({ isActive }) =>
+      `mb-2 rounded px-3 py-2 transition-colors ${
+        isActive
+          ? "bg-white/20 text-white"
+          : "text-white/90 hover:bg-white/10 hover:text-white"
+      }`
+    }
+  >
+    {children}
+  </NavLink>
+);
 
 export default function App() {
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <nav className="w-64 bg-blue-700 text-white flex flex-col p-4">
-        <h1 className="text-2xl font-bold mb-6">Reform Her Admin</h1>
-        <Link to="/lessons" className="mb-2 hover:underline">Lessons</Link>
-        <Link to="/users" className="mb-2 hover:underline">Users</Link>
-        <Link to="/quizzes" className="mb-2 hover:underline">Quizzes</Link>
-        <Link to="/kb" className="mb-2 hover:underline">Knowledge Base</Link>
-        <Link to="/certifications" className="mb-2 hover:underline">Certifications</Link>
-        <Link to="/helpline" className="mb-2 hover:underline">Helpline</Link>
-        <Link to="/analytics" className="mb-2 hover:underline">Analytics</Link>
-      </nav>
-      <main className="flex-1">
-        <Routes>
-          <Route path="/lessons" element={<Lessons />} />
-          <Route path="/users" element={<Users />} />
-          <Route path="/quizzes" element={<Quizzes />} />
-          <Route path="/kb" element={<KB />} />
-          <Route path="/certifications" element={<Certifications />} />
-          <Route path="/helpline" element={<Helpline />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="*" element={<Lessons />} />
-        </Routes>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <aside className="w-64 bg-blue-700 text-white flex flex-col p-4">
+        <div className="mb-6">
+          <h1 className="text-2xl font-extrabold tracking-tight">Reform Her</h1>
+          <div className="text-blue-100 text-sm -mt-0.5">Admin Dashboard</div>
+        </div>
+
+        <div className="flex flex-col">
+          <div className="text-blue-200 text-xs uppercase tracking-wider mb-2">
+            USSD & Messaging
+          </div>
+          <LinkItem to="/ussd">USSD Emulator</LinkItem>
+
+          <div className="text-blue-200 text-xs uppercase tracking-wider mt-4 mb-2">
+            Content & Users
+          </div>
+          <LinkItem to="/lessons">Lessons</LinkItem>
+          <LinkItem to="/quizzes">Quizzes</LinkItem>
+          <LinkItem to="/kb">Knowledge Base</LinkItem>
+          <LinkItem to="/users">Users</LinkItem>
+
+          <div className="text-blue-200 text-xs uppercase tracking-wider mt-4 mb-2">
+            Outcomes
+          </div>
+          <LinkItem to="/certifications">Certifications</LinkItem>
+          <LinkItem to="/helpline">Helpline</LinkItem>
+          <LinkItem to="/analytics">Analytics</LinkItem>
+        </div>
+
+        <div className="mt-auto pt-4 text-xs text-blue-200/80">
+          *500# • Supabase • Local dev
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1 min-w-0">
+        {/* Top bar */}
+        <header className="h-14 border-b bg-white flex items-center justify-between px-4">
+          <div className="font-semibold text-slate-700">Reform Her — Admin</div>
+          <div className="text-xs text-slate-500">
+            Env: <span className="font-mono">localhost</span>
+          </div>
+        </header>
+
+        {/* Routes */}
+        <div className="p-4">
+          <Routes>
+            {/* New USSD route */}
+            <Route path="/ussd" element={<UssdEmulator />} />
+
+            {/* Existing pages */}
+            <Route path="/lessons" element={<Lessons />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/quizzes" element={<Quizzes />} />
+            <Route path="/kb" element={<KB />} />
+            <Route path="/certifications" element={<Certifications />} />
+            <Route path="/helpline" element={<Helpline />} />
+            <Route path="/analytics" element={<Analytics />} />
+
+            {/* Default route → USSD Emulator for convenience */}
+            <Route path="*" element={<UssdEmulator />} />
+          </Routes>
+        </div>
       </main>
     </div>
   );

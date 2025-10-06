@@ -1,20 +1,20 @@
 // dashboard/src/lib/api.js
-export const API_BASE = "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-export async function postForm(path, form) {
-  const body = new URLSearchParams(form).toString();
-  const res = await fetch(`${API_BASE}${path}`, {
+export async function postUssd({ sessionId, phoneNumber, text }) {
+  const serviceCode = "*500#";
+  const body = new URLSearchParams({ sessionId, serviceCode, phoneNumber, text: text || "" });
+  const res = await fetch(`${API_BASE}/api/ussd`, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
-  // USSD gateways often return plain text (CON/END ...)
-  const text = await res.text().catch(() => "");
-  return text;
+  const msg = await res.text();
+  return msg; // "CON ..." or "END ..."
 }
 
-export async function getJson(path) {
-  const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) throw new Error(`GET ${path} ${res.status}`);
-  return res.json();
+export async function fetchOutbox(limit = 50) {
+  const res = await fetch(`${API_BASE}/api/sms/outbox?limit=${limit}`);
+  const json = await res.json();
+  return json.messages || [];
 }

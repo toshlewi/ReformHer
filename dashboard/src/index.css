@@ -1,3 +1,62 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* --- Phone emulator styles --- */
+.phone-frame {
+  width: 320px;
+  background: #1f2937; /* slate-800 */
+  border-radius: 28px;
+  padding: 14px 14px 10px;
+  color: #f8fafc; /* slate-50 */
+  box-shadow: 0 15px 40px rgba(0,0,0,.25);
+  border: 3px solid #111827; /* slate-900 */
+}
+.phone-top { display: flex; justify-content: center; margin-bottom: 8px; }
+.earpiece { width: 80px; height: 6px; background: #0f172a; border-radius: 6px; }
+.phone-screen {
+  background: linear-gradient(180deg, #0b1220, #0f172a 40%);
+  border-radius: 16px; height: 260px; padding: 10px; border: 2px solid #111827;
+  display: flex; align-items: stretch;
+}
+.screen-content { display: grid; grid-template-rows: auto 1fr auto auto; width: 100%; }
+.screen-header { display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; }
+.carrier { font-weight: 700; } .signal { opacity: .8; }
+.screen-body {
+  margin-top: 6px; overflow: auto; border-radius: 10px; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06); padding: 8px;
+}
+.screen-text { white-space: pre-wrap; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; line-height: 1.25rem; color: #f8fafc; margin: 0; }
+.screen-input {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #0b1220; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 8px; margin-top: 8px;
+}
+.screen-input .input-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; }
+.screen-input .input-value { font-size: 14px; font-weight: 700; color: #e5e7eb; }
+.muted { color: #94a3b8; }
+.screen-softkeys { display: flex; justify-content: space-between; padding: 6px 4px 0 4px; font-size: 12px; color: #cbd5e1; }
+.screen-softkeys .primary { color: #fca5a5; }
+.softkeys { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.softkey {
+  background: #0f172a; color: #e5e7eb; border: 1px solid #111827; padding: 8px 10px; border-radius: 10px; font-weight: 700;
+  transition: transform .05s ease, background .2s ease;
+}
+.softkey:hover { transform: translateY(-1px); }
+.softkey.primary { background: #dc2626; border-color: #991b1b; }
+.keypad { margin-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.key {
+  background: #111827; border: 1px solid #0b1220; border-radius: 12px; padding: 10px 0; text-align: center; color: #e5e7eb;
+  transition: transform .05s ease, background .15s ease;
+}
+.key:hover { transform: translateY(-1px); background: #0b1220; }
+.key .num { display: block; font-size: 18px; font-weight: 800; }
+.key .letters { display: block; font-size: 10px; color: #94a3b8; margin-top: 2px; }
+
+/* --- Dashboard helpers --- */
+.input { padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; outline: none; min-width: 220px; }
+.btn { background: #b91c1c; color: #fff; padding: 8px 12px; border-radius: 10px; border: none; }
+.btn-secondary { background: #f59e0b; color: #111827; padding: 8px 12px; border-radius: 10px; border: none; }
+.card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
+.card-title { font-weight: 800; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; background: #fff7ed; color: #7c2d12; }
+.divide-y > * + * { border-top: 1px solid #f1f5f9; }
+.chip { background: #fee2e2; color: #7f1d1d; border: 1px solid #fecaca; padding: 6px 10px; border-radius: 999px; font-size: 12px; }

@@ -1,102 +1,133 @@
-// dashboard/src/components/UssdEmulator.jsx
-import React, { useMemo, useState } from "react";
-import { postForm } from "../lib/api";
+import React, { useEffect, useMemo, useState } from "react";
+import PhoneFrame from "./PhoneFrame";
+import { postUssd, fetchOutbox } from "../lib/api";
 
-export default function UssdEmulator({
-  apiBase = "http://localhost:8000", // not used directly; kept for clarity
-  sessionId = "demo-001",
-  msisdn = "+254700000001",
-  shortCode = "*500#",
-}) {
-  const [text, setText] = useState("");           // the USSD text the user has typed (e.g. "1*2")
-  const [screen, setScreen] = useState("");       // gateway response text ("CON ..." | "END ...")
-  const [ended, setEnded] = useState(false);      // did we get END ?
-  const [busy, setBusy] = useState(false);
+function randomSessionId() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
 
-  const formEncoded = useMemo(() => {
-    const p = new URLSearchParams();
-    p.set("sessionId", sessionId);
-    p.set("serviceCode", shortCode);
-    p.set("phoneNumber", msisdn);
-    p.set("text", text);
-    return p;
-  }, [sessionId, shortCode, msisdn, text]);
+export default function UssdEmulator() {
+  const [phoneNumber, setPhoneNumber] = useState("254700000001");
+  const [sessionId, setSessionId] = useState(randomSessionId());
+  const [input, setInput] = useState("");
+  const [screen, setScreen] = useState("");
+  const [isEnd, setIsEnd] = useState(false);
+  const [smsInbox, setSmsInbox] = useState([]);
 
-  async function send() {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const resp = await postForm("/api/ussd", formEncoded);
-      setScreen(resp || "");
-      setEnded(resp.startsWith("END"));
-    } catch (e) {
-      setScreen("END Service temporarily unavailable.\nPlease try again.");
-      setEnded(true);
-    } finally {
-      setBusy(false);
+  // poll SMS outbox for this MSISDN
+  useEffect(() => {
+    let timer;
+    const load = async () => {
+      const all = await fetchOutbox(50);
+      setSmsInbox(all.filter(m => m.msisdn === phoneNumber));
+    };
+    load();
+    timer = setInterval(load, 2000);
+    return () => clearInterval(timer);
+  }, [phoneNumber]);
+
+  const prettyScreen = useMemo(() => {
+    if (!screen) return "";
+    if (screen.startsWith("CON ")) return screen.replace(/^CON /, "");
+    if (screen.startsWith("END ")) return screen.replace(/^END /, "");
+    return screen;
+  }, [screen]);
+
+  const dial = async () => {
+    const resp = await postUssd({ sessionId, phoneNumber, text: "" });
+    setScreen(resp);
+    setIsEnd(resp.startsWith("END "));
+    setInput("");
+  };
+
+  const send = async () => {
+    const resp = await postUssd({ sessionId, phoneNumber, text: input });
+    setScreen(resp);
+    setIsEnd(resp.startsWith("END "));
+    if (resp.startsWith("END ")) {
+      setTimeout(() => {
+        setSessionId(randomSessionId());
+        setInput("");
+      }, 600);
     }
-  }
+  };
 
-  function press(n) {
-    setText((prev) => (prev ? `${prev}*${n}` : `${n}`));
-  }
-  function back() {
-    const parts = text.split("*").filter(Boolean);
+  const back = () => {
+    const parts = input.split("*").filter(Boolean);
     parts.pop();
-    setText(parts.join("*"));
-  }
-  function reset() {
-    setText("");
-    setScreen("");
-    setEnded(false);
-  }
+    setInput(parts.join("*"));
+  };
+
+  const clear = () => setInput("");
+  const handleKey = (k) => setInput(prev => prev + k);
+  const quickFill = (value) => setInput(value);
 
   return (
-    <div className="bg-white rounded-2xl shadow p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold">USSD Emulator</h3>
-        <div className="text-xs text-slate-600">
-          MSISDN: <b>{msisdn}</b> • Code: <b>{shortCode}</b>
-        </div>
-      </div>
-
-      {/* “Phone” */}
-      <div className="mt-3 border rounded-xl p-3 bg-black text-green-200 min-h-[150px] whitespace-pre-wrap text-sm">
-        {screen || "Dialing... (press SEND)"}
-      </div>
-
-      {/* Controls */}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          onClick={send}
-          disabled={busy}
-          className="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {busy ? "Sending..." : "SEND"}
+    <div className="p-4 space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="text-sm font-medium">MSISDN</div>
+        <input
+          className="input"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
+          placeholder="2547XXXXXXXX"
+        />
+        <button className="btn" onClick={dial}>Dial *500#</button>
+        <button className="btn-secondary"
+          onClick={() => { setSessionId(randomSessionId()); setScreen(""); setInput(""); setIsEnd(false); }}>
+          Reset session
         </button>
-        <button onClick={reset} className="px-3 py-2 bg-slate-200 rounded">RESET</button>
-        <button onClick={back} className="px-3 py-2 bg-slate-200 rounded">BACK</button>
-        <span className="text-xs text-slate-500 self-center">Typed: {text || "(empty)"}</span>
       </div>
 
-      {/* Keypad */}
-      <div className="grid grid-cols-3 gap-3 mt-4">
-        {["1","2","3","4","5","6","7","8","9","*","0","#"].map((n) => (
-          <button
-            key={n}
-            onClick={() => press(n)}
-            className="px-4 py-3 bg-slate-100 hover:bg-slate-200 rounded shadow text-lg"
-          >
-            {n}
-          </button>
-        ))}
-      </div>
+      <div className="grid md:grid-cols-3 gap-6">
+        <div className="md:col-span-2">
+          <PhoneFrame onKeyPress={handleKey} onSend={send} onBack={back} onClear={clear}>
+            <div className="screen-content">
+              <div className="screen-header">
+                <span className="carrier">Reform Her</span>
+                <span className="signal">📶</span>
+              </div>
+              <div className="screen-body">
+                <pre className="screen-text">{screen ? prettyScreen : "Press Dial to start (*500#)"}</pre>
+              </div>
+              <div className="screen-input">
+                <div className="input-label">Text</div>
+                <div className="input-value">{input || <span className="muted">—</span>}</div>
+              </div>
+              <div className="screen-softkeys">
+                <span>Back</span>
+                <span className="primary">{isEnd ? "Close" : "Send"}</span>
+              </div>
+            </div>
+          </PhoneFrame>
 
-      {ended && (
-        <div className="mt-3 text-amber-600 text-sm">
-          Session ended. Press RESET to start again.
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button className="chip" onClick={() => quickFill("1")}>1 (Register)</button>
+            <button className="chip" onClick={() => quickFill("1*1")}>1*1 (Lang → English)</button>
+            <button className="chip" onClick={() => quickFill("1*1*1")}>1*1*1 (Region → Nairobi)</button>
+            <button className="chip" onClick={() => quickFill("2")}>2 (Lesson)</button>
+            <button className="chip" onClick={() => quickFill("3")}>3 (Quiz)</button>
+          </div>
         </div>
-      )}
+
+        <aside>
+          <div className="card">
+            <div className="card-title">SMS Inbox (for {phoneNumber})</div>
+            <div className="divide-y">
+              {smsInbox.length === 0 && (
+                <div className="p-3 text-sm text-slate-500">No SMS yet. Complete a flow to receive one.</div>
+              )}
+              {smsInbox.map((m) => (
+                <div key={m.id} className="p-3">
+                  <div className="text-xs text-slate-400">{new Date(m.created_at).toLocaleString()}</div>
+                  <div className="font-medium text-slate-800">{m.body}</div>
+                  <div className="text-xs text-slate-500 mt-1">Status: {m.status}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
