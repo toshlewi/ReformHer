@@ -9,7 +9,9 @@ import KB from "./pages/KB";
 import Certifications from "./pages/Certifications";
 import Helpline from "./pages/Helpline";
 import Analytics from "./pages/Analytics";
-import UssdEmulator from "./components/UssdEmulator"; // <— new
+import UssdEmulator from "./components/UssdEmulator";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const LinkItem = ({ to, children }) => (
   <NavLink
@@ -27,6 +29,15 @@ const LinkItem = ({ to, children }) => (
 );
 
 export default function App() {
+  const envLabel = (() => {
+    try {
+      const u = new URL(API_BASE);
+      return u.hostname === "localhost" ? "localhost" : u.hostname;
+    } catch {
+      return "unknown";
+    }
+  })();
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
@@ -69,7 +80,7 @@ export default function App() {
         <header className="h-14 border-b bg-white flex items-center justify-between px-4">
           <div className="font-semibold text-slate-700">Reform Her — Admin</div>
           <div className="text-xs text-slate-500">
-            Env: <span className="font-mono">localhost</span>
+            Env: <span className="font-mono">{envLabel}</span>
           </div>
         </header>
 

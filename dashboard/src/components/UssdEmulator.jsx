@@ -19,7 +19,7 @@ export default function UssdEmulator() {
     let timer;
     const load = async () => {
       const all = await fetchOutbox(50);
-      setSmsInbox(all.filter(m => m.msisdn === phoneNumber));
+      setSmsInbox(all.filter((m) => m.msisdn === phoneNumber));
     };
     load();
     timer = setInterval(load, 2000);
@@ -33,6 +33,13 @@ export default function UssdEmulator() {
     return screen;
   }, [screen]);
 
+  const resetSession = () => {
+    setSessionId(randomSessionId());
+    setScreen("");
+    setInput("");
+    setIsEnd(false);
+  };
+
   const dial = async () => {
     const resp = await postUssd({ sessionId, phoneNumber, text: "" });
     setScreen(resp);
@@ -41,25 +48,41 @@ export default function UssdEmulator() {
   };
 
   const send = async () => {
+    // If session already ended, the softkey reads "Close" → end the call
+    if (isEnd) {
+      resetSession();
+      return;
+    }
+    // Avoid posting empty text mid-flow (except the very first dial which uses dial())
+    if (!input && screen) {
+      return;
+    }
+
     const resp = await postUssd({ sessionId, phoneNumber, text: input });
     setScreen(resp);
     setIsEnd(resp.startsWith("END "));
+    setInput("");
+
     if (resp.startsWith("END ")) {
       setTimeout(() => {
-        setSessionId(randomSessionId());
-        setInput("");
+        resetSession();
       }, 600);
     }
   };
 
   const back = () => {
+    if (!input) return;
     const parts = input.split("*").filter(Boolean);
+    if (parts.length <= 1) {
+      setInput("");
+      return;
+    }
     parts.pop();
     setInput(parts.join("*"));
   };
 
   const clear = () => setInput("");
-  const handleKey = (k) => setInput(prev => prev + k);
+  const handleKey = (k) => setInput((prev) => prev + k);
   const quickFill = (value) => setInput(value);
 
   return (
@@ -73,8 +96,10 @@ export default function UssdEmulator() {
           placeholder="2547XXXXXXXX"
         />
         <button className="btn" onClick={dial}>Dial *500#</button>
-        <button className="btn-secondary"
-          onClick={() => { setSessionId(randomSessionId()); setScreen(""); setInput(""); setIsEnd(false); }}>
+        <button
+          className="btn-secondary"
+          onClick={resetSession}
+        >
           Reset session
         </button>
       </div>
@@ -88,11 +113,15 @@ export default function UssdEmulator() {
                 <span className="signal">📶</span>
               </div>
               <div className="screen-body">
-                <pre className="screen-text">{screen ? prettyScreen : "Press Dial to start (*500#)"}</pre>
+                <pre className="screen-text">
+                  {screen ? prettyScreen : "Press Dial to start (*500#)"}
+                </pre>
               </div>
               <div className="screen-input">
                 <div className="input-label">Text</div>
-                <div className="input-value">{input || <span className="muted">—</span>}</div>
+                <div className="input-value">
+                  {input || <span className="muted">—</span>}
+                </div>
               </div>
               <div className="screen-softkeys">
                 <span>Back</span>
@@ -115,11 +144,15 @@ export default function UssdEmulator() {
             <div className="card-title">SMS Inbox (for {phoneNumber})</div>
             <div className="divide-y">
               {smsInbox.length === 0 && (
-                <div className="p-3 text-sm text-slate-500">No SMS yet. Complete a flow to receive one.</div>
+                <div className="p-3 text-sm text-slate-500">
+                  No SMS yet. Complete a flow to receive one.
+                </div>
               )}
               {smsInbox.map((m) => (
                 <div key={m.id} className="p-3">
-                  <div className="text-xs text-slate-400">{new Date(m.created_at).toLocaleString()}</div>
+                  <div className="text-xs text-slate-400">
+                    {new Date(m.created_at).toLocaleString()}
+                  </div>
                   <div className="font-medium text-slate-800">{m.body}</div>
                   <div className="text-xs text-slate-500 mt-1">Status: {m.status}</div>
                 </div>

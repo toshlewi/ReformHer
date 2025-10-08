@@ -1,13 +1,12 @@
-export default function Certifications(){
+export default function Certifications() {
   return (
     <div className="bg-white shadow rounded p-4">
-      <h2 className="font-semibold mb-2">Certifications (Demo)</h2>
+      <h2 className="font-semibold mb-2">Certifications</h2>
       <p className="text-sm text-slate-600">
-        Use USSD demo → <b>5. Certifications</b> (stub). You’ll later attach a 5-question exam and badge issuance.
+        To test certifications in the emulator, dial <b>*500#</b> and choose <b>4. Certifications</b>.
+        You’ll see your current quiz count and average score, and (if eligible) you can claim a badge.
+        The full 5-question exam and badge issuance can be wired up later without changing this UI.
       </p>
     </div>
   );
 }
-
-
-
