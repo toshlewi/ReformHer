@@ -8,6 +8,9 @@ const app = express();
 const log = (...args) =>
   process.env.NODE_ENV !== 'production' && console.log('[USSD]', ...args);
 
+// NEW: keep a simple, in-memory cumulative path per session
+const sessPath = new Map(); // sessionId => "2*5*1"
+
 // ---------------------------------------------------------
 // Middleware
 // ---------------------------------------------------------
@@ -56,7 +59,7 @@ const I18N = {
     reg_found:
       'CON We found your profile.\n1. View profile\n2. Update region\n3. Update business type\n4. Update topics\n5. Update delivery window\n6. Delete my data\n0. Back',
     reg_region: 'CON Region/County?\n1. Nairobi\n2. Kiambu\n3. Mombasa\n9. Other',
-    reg_biz: 'CON Choose business type:\n1. Enterpreneur\n2. Farmer\n3. Worker\n9. Other',
+    reg_biz: 'CON Choose business type:\n1. Entrepreneur\n2. Farmer\n3. Worker\n9. Other',
     reg_window: 'CON Choose preferred SMS time:\n1. Morning\n2. Afternoon\n3. Evening',
     reg_topics: 'CON Enter topics (comma-separated, e.g. pricing, saving, health)',
     reg_confirm: 'CON Save profile?\n1. Yes, save\n2. No, cancel',
@@ -109,7 +112,7 @@ const I18N = {
     reg_found:
       'CON Tumeupata wasifu wako.\n1. Tazama wasifu\n2. Badilisha eneo\n3. Badilisha aina ya biashara\n4. Badilisha mada\n5. Badilisha muda wa SMS\n6. Futa data yangu\n0. Rudi',
     reg_region: 'CON Eneo/Kaunti?\n1. Nairobi\n2. Kiambu\n3. Mombasa\n9. Nyingine',
-    reg_biz: 'CON Chagua aina ya biashara:\n1. Mfanyabiashara\n2. Mkulima\n3. Fundi/Artisan\n9. Nyingine',
+    reg_biz: 'CON Chagua aina ya biashara:\n1. Mfanyabiashara\n2. Mkulima\n3. Mfanyakazi\n9. Nyingine',
     reg_window: 'CON Chagua muda wa SMS:\n1. Asubuhi\n2. Mchana\n3. Jioni',
     reg_topics: 'CON Andika mada (tenganisha kwa koma, mf. bei, akiba, afya)',
     reg_confirm: 'CON Hifadhi wasifu?\n1. Ndiyo, hifadhi\n2. Hapana, batilisha',
@@ -161,7 +164,7 @@ const I18N = {
     reg_found:
       'CON Nous avons trouvé votre profil.\n1. Voir le profil\n2. Modifier la région\n3. Modifier le type d’activité\n4. Modifier les thèmes\n5. Modifier l’horaire SMS\n6. Supprimer mes données\n0. Retour',
     reg_region: 'CON Région/Département ?\n1. Nairobi\n2. Kiambu\n3. Mombasa\n9. Autre',
-    reg_biz: 'CON Choisissez le type d’activité :\n1. Commerçante\n2. Agricultrice\n3. Artisane\n9. Autre',
+    reg_biz: 'CON Choisissez le type d’activité :\n1. Commerçante\n2. Agricultrice\n3. Travailleuse\n9. Autre',
     reg_window: 'CON Choisissez l’horaire SMS :\n1. Matin\n2. Après-midi\n3. Soir',
     reg_topics: 'CON Saisissez les thèmes (séparés par des virgules, ex. prix, épargne, santé)',
     reg_confirm: 'CON Enregistrer le profil ?\n1. Oui, enregistrer\n2. Non, annuler',
@@ -213,7 +216,7 @@ const I18N = {
     reg_found:
       'CON Encontrámos o seu perfil.\n1. Ver perfil\n2. Atualizar região\n3. Atualizar tipo de negócio\n4. Atualizar tópicos\n5. Atualizar horário de SMS\n6. Eliminar os meus dados\n0. Voltar',
     reg_region: 'CON Região/Condado?\n1. Nairóbi\n2. Kiambu\n3. Mombaça\n9. Outro',
-    reg_biz: 'CON Escolha o tipo de negócio:\n1. Vendedora\n2. Agricultora\n3. Artesã\n9. Outro',
+    reg_biz: 'CON Escolha o tipo de negócio:\n1. Vendedora\n2. Agricultora\n3. Trabalhadora\n9. Outro',
     reg_window: 'CON Escolha o horário de SMS:\n1. Manhã\n2. Tarde\n3. Noite',
     reg_topics: 'CON Introduza tópicos (separados por vírgulas, ex. preços, poupança, saúde)',
     reg_confirm: 'CON Guardar perfil?\n1. Sim, guardar\n2. Não, cancelar',
@@ -251,55 +254,61 @@ const LANG_BY_DIGIT = { '1': 'en', '2': 'sw', '3': 'fr', '4': 'pt' };
 // ---------------------------------------------------------
 app.post('/api/ussd', async (req, res) => {
   try {
-    // Robust extraction for different gateways
+    // Robust extraction
     let { sessionId, serviceCode, phoneNumber, text } =
       typeof req.body === 'object' ? (req.body || {}) : {};
 
-    sessionId =
-      sessionId || req.body?.session_id || req.query?.sessionId || `sess_${Date.now()}`;
-
-    serviceCode =
-      serviceCode || req.body?.service_code || req.query?.serviceCode || '*500#';
-
-    phoneNumber = (
-      phoneNumber || req.body?.msisdn || req.query?.phoneNumber || ''
-    ).toString().trim();
+    sessionId = sessionId || req.body?.session_id || req.query?.sessionId || `sess_${Date.now()}`;
+    serviceCode = serviceCode || req.body?.service_code || req.query?.serviceCode || '*500#';
+    phoneNumber = (phoneNumber || req.body?.msisdn || req.query?.phoneNumber || '').toString().trim();
 
     const rawText =
       text ?? req.body?.message ?? req.query?.text ?? (typeof req.body === 'string' ? req.body : '');
-    const textStr = (rawText || '').toString().trim();
+    let textStr = (rawText || '').toString().trim();
 
     log('REQ:', req.headers['content-type'], { sessionId, serviceCode, phoneNumber, text: textStr });
 
-    // Accept *500# and variants (some gateways append suffixes)
     if (!serviceCode || !serviceCode.startsWith('*500#')) {
       return res.status(200).send(I18N.en.invalid_sc);
+    }
+
+    // --- accumulate path: allow sending only the next digit ---
+    if (textStr === '') {
+      sessPath.set(sessionId, ''); // new dial
+    } else if (textStr.includes('*')) {
+      sessPath.set(sessionId, textStr); // full path provided
+    } else {
+      const prev = sessPath.get(sessionId) || '';
+      textStr = prev ? `${prev}*${textStr}` : textStr;
+      sessPath.set(sessionId, textStr);
     }
 
     const parts = textStr.split('*').filter(Boolean);
     const level = parts.length;
 
-    // Level 0: ALWAYS show language screen first
+    // Level 0 → language screen
     if (level === 0) {
-      const L0 = I18N.en; // default copy language for the very first screen
+      const L0 = I18N.en;
       return res.send(`CON ${L0.choose_lang_title}\n${L0.choose_lang_opts}`);
     }
 
-    // From here on, use the chosen language
+    // After language, use chosen pack
     const locale = LANG_BY_DIGIT[parts[0]] || 'en';
     const L = I18N[locale] || I18N.en;
 
-    // Level 1: After selecting language, show main menu
+    // Level 1 → main menu
     if (level === 1) {
       return res.send(L.main);
     }
 
-    // After language, the main menu selection is at parts[1]
+    // Main selection is parts[1]
     const choice1 = parts[1];
 
-    // ---------------- Exit
+    // Exit
     if (choice1 === '0') {
-      return res.send(L.thanks);
+      const out = L.thanks;
+      if (out.startsWith('END')) sessPath.delete(sessionId);
+      return res.send(out);
     }
 
     // ---------------- Register / Update profile ----------------
@@ -308,7 +317,6 @@ app.post('/api/ussd', async (req, res) => {
       const bizMap = { '1': 'Trader', '2': 'Farmer', '3': 'Artisan', '9': 'Other' };
       const winMap = { '1': 'morning', '2': 'afternoon', '3': 'evening' };
 
-      // Is user already registered?
       const { data: existing, error: gErr } = await supabase
         .from('users')
         .select('*')
@@ -316,17 +324,14 @@ app.post('/api/ussd', async (req, res) => {
         .maybeSingle();
       if (gErr) throw gErr;
 
-      // Existing user: show update menu at level === 2
+      // Existing user
       if (existing) {
-        if (level === 2) {
-          return res.send(L.reg_found);
-        }
+        if (level === 2) return res.send(L.reg_found);
 
-        const sub = parts[2];           // which update action
-        const subValue = parts[3];      // the value/selection for that action
+        const sub = parts[2];
+        const subValue = parts[3];
         const freeText = parts.slice(3).join(',').replace(/\*+/g, ',').trim();
 
-        // 1) View profile
         if (sub === '1') {
           const lines = [
             L.profile_view_prefix,
@@ -341,69 +346,71 @@ app.post('/api/ussd', async (req, res) => {
           return res.send(lines);
         }
 
-        // 2) Update region
         if (sub === '2') {
           if (level === 3) return res.send(L.reg_region);
           if (level === 4) {
             const region = regionMap[subValue] || 'Other';
             const { error } = await supabase.from('users').update({ region }).eq('msisdn', phoneNumber);
             if (error) throw error;
-            return res.send(L.profile_updated);
+            const out = L.profile_updated;
+            if (out.startsWith('END')) sessPath.delete(sessionId);
+            return res.send(out);
           }
         }
 
-        // 3) Update business type
         if (sub === '3') {
           if (level === 3) return res.send(L.reg_biz);
           if (level === 4) {
             const business_type = bizMap[subValue] || 'Other';
             const { error } = await supabase.from('users').update({ business_type }).eq('msisdn', phoneNumber);
             if (error) throw error;
-            return res.send(L.profile_updated);
+            const out = L.profile_updated;
+            if (out.startsWith('END')) sessPath.delete(sessionId);
+            return res.send(out);
           }
         }
 
-        // 4) Update topics (free text)
         if (sub === '4') {
           if (level === 3) return res.send(L.reg_topics);
           if (level >= 4) {
-            const topics = freeText;
-            const { error } = await supabase.from('users').update({ topics }).eq('msisdn', phoneNumber);
+            const { error } = await supabase.from('users').update({ topics: freeText }).eq('msisdn', phoneNumber);
             if (error) throw error;
-            return res.send(L.profile_updated);
+            const out = L.profile_updated;
+            if (out.startsWith('END')) sessPath.delete(sessionId);
+            return res.send(out);
           }
         }
 
-        // 5) Update delivery window
         if (sub === '5') {
           if (level === 3) return res.send(L.reg_window);
           if (level === 4) {
             const delivery_window = winMap[subValue] || 'evening';
             const { error } = await supabase.from('users').update({ delivery_window }).eq('msisdn', phoneNumber);
             if (error) throw error;
-            return res.send(L.profile_updated);
+            const out = L.profile_updated;
+            if (out.startsWith('END')) sessPath.delete(sessionId);
+            return res.send(out);
           }
         }
 
-        // 6) Delete my data
         if (sub === '6') {
           const { error } = await supabase.from('users').delete().eq('msisdn', phoneNumber);
           if (error) throw error;
-          return res.send(L.profile_deleted);
+          const out = L.profile_deleted;
+          if (out.startsWith('END')) sessPath.delete(sessionId);
+          return res.send(out);
         }
 
-        if (sub === '0') {
-          return res.send(L.main);
-        }
+        if (sub === '0') return res.send(L.main);
 
         return res.send(L.invalid_choice);
       }
 
-      // New user: sequence across levels 2..6
-      if (level === 2) return res.send(L.reg_region);   // pick region
-      if (level === 3) return res.send(L.reg_biz);      // pick biz
-      if (level === 4) return res.send(L.reg_window);   // pick window
-      if (level === 5) return res.send(L.reg_confirm);  // confirm
+      // New user: levels 2..6
+      if (level === 2) return res.send(L.reg_region);
+      if (level === 3) return res.send(L.reg_biz);
+      if (level === 4) return res.send(L.reg_window);
+      if (level === 5) return res.send(L.reg_confirm);
 
       if (level === 6) {
         const regionSel = parts[2];
@@ -425,7 +432,9 @@ app.post('/api/ussd', async (req, res) => {
         if (error) throw error;
 
         await queueSms(phoneNumber, L.sms.welcome);
-        return res.send(L.profile_saved);
+        const out = L.profile_saved;
+        if (out.startsWith('END')) sessPath.delete(sessionId);
+        return res.send(out);
       }
 
       return res.send(L.invalid_choice);
@@ -434,31 +443,36 @@ app.post('/api/ussd', async (req, res) => {
     // ---------------- Daily Lessons ----------------
     if (choice1 === '2') {
       await queueSms(phoneNumber, L.sms.lesson);
-      return res.send(L.lessons_end);
+      const out = L.lessons_end;
+      if (out.startsWith('END')) sessPath.delete(sessionId);
+      return res.send(out);
     }
 
     // ---------------- Quizzes ----------------
     if (choice1 === '3') {
       await queueSms(phoneNumber, L.sms.quiz);
-      return res.send(L.quiz_end);
+      const out = L.quiz_end;
+      if (out.startsWith('END')) sessPath.delete(sessionId);
+      return res.send(out);
     }
 
     // ---------------- Certifications ----------------
     if (choice1 === '4') {
       await queueSms(phoneNumber, L.sms.cert);
-      return res.send(L.cert_end);
+      const out = L.cert_end;
+      if (out.startsWith('END')) sessPath.delete(sessionId);
+      return res.send(out);
     }
 
     // ---------------- Business Support ----------------
     if (choice1 === '5') {
-      // level 2: show options, level 3: pick & SMS
-      if (level === 2) {
-        return res.send(L.biz_pick);
-      }
+      if (level === 2) return res.send(L.biz_pick);
       if (level === 3) {
         const topic = parts[2];
         await queueSms(phoneNumber, L.sms.biz[topic] || L.sms.biz['1']);
-        return res.send(L.cert_end); // short END message (reuse)
+        const out = L.cert_end; // short END message (reuse)
+        if (out.startsWith('END')) sessPath.delete(sessionId);
+        return res.send(out);
       }
       return res.send(L.invalid_choice);
     }
@@ -466,13 +480,17 @@ app.post('/api/ussd', async (req, res) => {
     // ---------------- Agriculture Tips ----------------
     if (choice1 === '6') {
       await queueSms(phoneNumber, L.sms.agri);
-      return res.send(L.lessons_end);
+      const out = L.lessons_end;
+      if (out.startsWith('END')) sessPath.delete(sessionId);
+      return res.send(out);
     }
 
     // ---------------- Health Tips ----------------
     if (choice1 === '7') {
       await queueSms(phoneNumber, L.sms.health);
-      return res.send(L.lessons_end);
+      const out = L.lessons_end;
+      if (out.startsWith('END')) sessPath.delete(sessionId);
+      return res.send(out);
     }
 
     // ---------------- Helpline ----------------
@@ -482,12 +500,16 @@ app.post('/api/ussd', async (req, res) => {
         .from('helpline_tickets')
         .insert([{ msisdn: phoneNumber, topic: 'General', notes: 'USSD helpline callback request' }]);
       if (error) throw error;
-      return res.send(L.thanks);
+      const out = L.thanks;
+      if (out.startsWith('END')) sessPath.delete(sessionId);
+      return res.send(out);
     }
 
     // ---------------- Talk to AI (placeholder) ----------------
     if (choice1 === '9') {
-      return res.send('END AI chat coming soon.');
+      const out = 'END AI chat coming soon.';
+      if (out.startsWith('END')) sessPath.delete(sessionId);
+      return res.send(out);
     }
 
     return res.send(I18N[locale]?.invalid_choice || I18N.en.invalid_choice);
@@ -549,7 +571,7 @@ app.get('/api/analytics/summary', async (_req, res) => {
     res.json({
       totalUsers: userCount || 0,
       quizCount: quizCount || 0,
-      avgScore: 4.2, // wire to quiz_attempts if you record answers
+      avgScore: 4.2, // placeholder
       byTopic: [
         { topic: 'Health', c: 12 },
         { topic: 'Business', c: 18 },
